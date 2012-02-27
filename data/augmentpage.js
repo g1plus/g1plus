@@ -9,9 +9,10 @@ function addCSS() {
     var style = document.createElement('style');
     var head = document.getElementsByTagName('head')[0];
     style.type = 'text/css';
-    style.appendChild(document.createTextNode(".g1plus a { background: #AC9C64; color: #000; padding: 4px; display: inline-block; margin: 4px 4px 0px 0px; }"));
+    style.appendChild(document.createTextNode(".g1plus a { background: #AC9C64; color: #2B2717; font-size: 10px; padding: 4px; display: inline-block; margin: 4px 4px 0px 0px; border-radius: 2px; border: 2px solid #BDB184; box-shadow: 1px 2px 6px rgba(0, 0, 0, 0.5); text-decoration:none; }"));
     style.appendChild(document.createTextNode(".agecheck.g1plus { height:24px; padding: 200px 0px; text-align: center; }"));
-    style.appendChild(document.createTextNode(".download.g1plus { background : #262626; font-size: 12px; letter-spacing: normal; line-height: 18px; padding: 8px; }"));
+    style.appendChild(document.createTextNode(".g1plus a:hover {  background: #BDB184; border-color: #CFC6A5; }"));
+    style.appendChild(document.createTextNode(".download.g1plus { background : #262626; font-size: 12px; letter-spacing: normal; line-height: 18px; padding: 8px; margin-bottom:8px;}"));
     head.appendChild(style);
 }
 
@@ -145,8 +146,11 @@ function createAgeCheck() {
     });
     agecheck.appendChild(year);
 
-    var ok = document.createElement('a');
-    ok.textContent = 'OK';
+    //agecheck.appendChild(document.createElement('br'));
+
+    var ok = document.createElement('input');
+    ok.setAttribute('type', 'submit');
+    ok.setAttribute('value', 'Bestätigen');
     $(ok).click(function() {
         var year = parseInt($('select.year :selected', this.parentNode).text());
         var month = parseInt($('select.month :selected', this.parentNode).text());
@@ -298,24 +302,26 @@ self.port.on('response_cache', function(response) {
     }
 
     $('div.agecheck').each(function(i){
-        var id = response.cache[page][String(i + 1)];
-        if(id) {
-            var url = 'http://media.mtvnservices.com/mgid:gameone:video:mtvnn.com:video_meta-' + id;
-            if(id.indexOf('http') > -1) {
-                url = id;
+        var ids = response.cache[page][String(i + 1)];
+        if(ids) {
+            for(j in ids) {
+                var id = ids[j];
+                var url = 'http://media.mtvnservices.com/mgid:gameone:video:mtvnn.com:video_meta-' + id;
+                if(id.indexOf('http') > -1) {
+                    url = id;
+                }
+                var player_swf = document.createElement('div');
+                player_swf.setAttribute('class', 'player_swf');
+                var player = createPlayer(url);
+                player_swf.appendChild(player);
+                $(this).after(player_swf);
+                if(id.indexOf('http') == -1) {
+                    player.getDownloads = getDownloads;
+                    player.getDownloads();
+                }
             }
-            var player_swf = document.createElement('div');
-            player_swf.setAttribute('class', 'player_swf');
-            var player = createPlayer(url);
-            player_swf.appendChild(player);
-            $(this).replaceWith(player_swf);
-            if(id.indexOf('http') == -1) {
-                player.getDownloads = getDownloads;
-                player.getDownloads();
-            }
-        } else {
-            $(this).remove();
         }
+        $(this).remove();
     });
 });
 
