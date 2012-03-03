@@ -1,6 +1,9 @@
 *.xpi
 *.backup
 *~
+*.sh
+*.pem
+*.rdf
 
 # Following generic rules taken from:
 # http://help.github.com/ignore-files/
