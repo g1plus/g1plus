@@ -9,33 +9,39 @@ function addCSS() {
     var style = document.createElement('style');
     var head = document.getElementsByTagName('head')[0];
     style.type = 'text/css';
-    style.appendChild(document.createTextNode(".g1plus a { background: #AC9C64; color: #2B2717; font-size: 10px; padding: 4px; display: inline-block; margin: 4px 4px 0px 0px; border-radius: 2px; border: 2px solid #BDB184; box-shadow: 1px 2px 6px rgba(0, 0, 0, 0.5); text-decoration:none; }"));
+    style.appendChild(document.createTextNode(".g1plus a { background: #AC9C64; color: #2B2717; font-size: 10px; padding: 4px; display: inline-block; margin: 4px 4px 0 0; border-radius: 2px; border: 2px solid #BDB184; box-shadow: 1px 2px 6px rgba(0, 0, 0, 0.5); text-decoration:none; }"));
     style.appendChild(document.createTextNode(".agecheck.g1plus { height:24px; padding: 200px 0px; text-align: center; }"));
     style.appendChild(document.createTextNode(".g1plus a:hover {  background: #BDB184; border-color: #CFC6A5; }"));
-    style.appendChild(document.createTextNode(".download.g1plus { background : #262626; font-size: 12px; letter-spacing: normal; line-height: 18px; padding: 8px; margin-bottom:8px;}"));
+    style.appendChild(document.createTextNode(".downloads.g1plus { background: #262626; font-size: 12px; letter-spacing: normal; line-height: 18px; padding: 8px; margin-bottom: 8px; }"));
+    style.appendChild(document.createTextNode(".g1plus h4 { font-weight: bold; }"));
     head.appendChild(style);
 }
 
 /**
- * Erzeugt einen Download-Container.
+ * Erzeugt einen Container für Download-Links.
  *
- * @param id  Die id des Vidos zu dem der Container gehört
+ * @param id   Die id die des Containers
  *
- * @return Der Download-Container
+ * @return Der Container
  */
-function createDownloadBox(id) {
+function createDownloadContainer(id) {
     var downloads = document.createElement('div');
-    downloads.setAttribute('class', 'g1plus');
-    downloads.setAttribute('id', 'downloads_' + id)
-    downloads.setAttribute('class', 'download g1plus');
+    downloads.setAttribute('id', id)
+    downloads.setAttribute('class', 'downloads g1plus ');
 
-    var heading = document.createElement('strong');
+    var heading = document.createElement('h4');
     heading.textContent = 'Downloads';
-
     downloads.appendChild(heading);
-    downloads.appendChild(document.createElement('br'));
 
     return downloads;
+}
+
+function createWarning(msg) {
+    var warning = document.createElement('div');
+    warning.setAttribute('class', 'warn_text');
+    $(warning).html(msg);
+
+    return warning;
 }
 
 /**
@@ -83,9 +89,8 @@ function createPlayer(src) {
  */
 function getDownloads() {
     var src = this.getAttribute('src');
-    console.log(src);
     var id = src.split('-').pop();
-    this.parentNode.appendChild(createDownloadBox(id));
+    this.parentNode.appendChild(createDownloadContainer('downloads_' + id));
     self.port.emit('request', {url:'http://gameone.de/api/mrss/' + src, callback: 'response_mrss', id: id});
 }
 
@@ -146,8 +151,6 @@ function createAgeCheck() {
     });
     agecheck.appendChild(year);
 
-    //agecheck.appendChild(document.createElement('br'));
-
     var ok = document.createElement('input');
     ok.setAttribute('type', 'submit');
     ok.setAttribute('value', 'Bestätigen');
@@ -162,7 +165,7 @@ function createAgeCheck() {
             var commentable_id = document.getElementById('commentable_id').getAttribute('value');
             $('div.agecheck').empty();
             $('div.agecheck').addClass('loading');
-            self.port.emit('request_cache', commentable_id);
+            self.port.emit('request_cache', {id: commentable_id, url: window.location.href});
         }
         return false;
     });
@@ -291,37 +294,43 @@ self.port.on('response_flvgen', function(response) {
 
 /**
  * Behandeln des Cache-Response.
- * Im Cache enthaltene 18er Inhalte werden durch das Video ersetzt und mit
+ * Im Cache enthaltene 18er-Inhalte werden durch das Video ersetzt und mit
  * Downloadlinks versehen.
  */
 self.port.on('response_cache', function(response) {
     var page = '1';
-    var href = window.location.href.split('/');
+    var href = window.location.href.split('?').pop().split('/');
     if(href[href.length - 2] == 'part') {
         page = href[href.length - 1];
     }
 
     $('div.agecheck').each(function(i){
-        var ids = response.cache[page][String(i + 1)];
-        if(ids) {
+        if(response.cache && response.cache[page][String(i + 1)]) {
+            var ids = response.cache[page][String(i + 1)];
             for(j in ids) {
                 var id = ids[j];
-                var url = 'http://media.mtvnservices.com/mgid:gameone:video:mtvnn.com:video_meta-' + id;
-                if(id.indexOf('http') > -1) {
-                    url = id;
-                }
-                var player_swf = document.createElement('div');
-                player_swf.setAttribute('class', 'player_swf');
-                var player = createPlayer(url);
-                player_swf.appendChild(player);
-                $(this).after(player_swf);
-                if(id.indexOf('http') == -1) {
-                    player.getDownloads = getDownloads;
-                    player.getDownloads();
+                if(id.indexOf('gallery') > -1) {
+                    $(this).replaceWith(createWarning('Bei diesem altersbeschränkten Inhalt handelt es sich um eine Bilder-Galerie, Diese werden derzeit nicht von G1Plus erfasst. Dies kann sich in zukünfitgen Versionen ändern, wenn gesteigertes Interesse besteht (<a href="https://github.com/g1plus/g1plus/issues/1">Issue #1</a>)'));
+                } else {
+                    var url = 'http://media.mtvnservices.com/mgid:gameone:video:mtvnn.com:video_meta-' + id;
+                    if(id.indexOf('http') > -1) {
+                        url = id;
+                    }
+                    var player_swf = document.createElement('div');
+                    player_swf.setAttribute('class', 'player_swf');
+                    var player = createPlayer(url);
+                    player_swf.appendChild(player);
+                    $(this).after(player_swf);
+                    if(id.indexOf('http') == -1) {
+                        player.getDownloads = getDownloads;
+                        player.getDownloads();
+                    }
                 }
             }
+            $(this).remove();
+        } else {
+            $(this).replaceWith(createWarning('Für diesen altersbeschränkten Inhalt liegt keine Referenz im Cache vor. Entweder ist der Cache derzeit nicht aktuell oder es handelt sich um eine Bilder-Galerie (wird derzeit nicht von G1Plus berücksichtigt).'));
         }
-        $(this).remove();
     });
 });
 
@@ -342,7 +351,13 @@ konami.load()
 // Downloads für alle Videos holen
 $('div.player_swf embed').each(getDownloads);
 
-// Altersbeschränkte Inhalte mit einer Altersfreigabe versehen
-$('img[src="/images/dummys/dummy_agerated.jpg"]').each(function(i) {
-    $(this).replaceWith(createAgeCheck());
-});
+if($('img[src="/images/dummys/dummy_agerated.jpg"]').length == 0) {
+    if(document.getElementById('commentable_id')) {
+        var commentable_id = document.getElementById('commentable_id').getAttribute('value');
+        self.port.emit('add_to_cache', {id: commentable_id, url: window.location.href});
+    }
+} else { // Altersbeschränkte Inhalte mit einer Altersfreigabe versehen
+    $('img[src="/images/dummys/dummy_agerated.jpg"]').each(function(i) {
+        $(this).replaceWith(createAgeCheck());
+    });
+}
