@@ -310,7 +310,7 @@ self.port.on('response_cache', function(response) {
             for(j in ids) {
                 var id = ids[j];
                 if(id.indexOf('gallery') > -1) {
-                    $(this).replaceWith(createWarning('Bei diesem altersbeschränkten Inhalt handelt es sich um eine Bilder-Galerie, Diese werden derzeit nicht von G1Plus erfasst. Dies kann sich in zukünfitgen Versionen ändern, wenn gesteigertes Interesse besteht (<a href="https://github.com/g1plus/g1plus/issues/1">Issue #1</a>)'));
+                    $(this).replaceWith(createWarning('Bei diesem altersbeschränkten Inhalt handelt es sich um eine Bilder-Galerie, Diese werden derzeit nicht von G1Plus erfasst. Dies kann sich in zukünftigen Versionen ändern, wenn gesteigertes Interesse besteht (<a href="https://github.com/g1plus/g1plus/issues/1">Issue #1</a>)'));
                 } else {
                     var url = 'http://media.mtvnservices.com/mgid:gameone:video:mtvnn.com:video_meta-' + id;
                     if(id.indexOf('http') > -1) {
