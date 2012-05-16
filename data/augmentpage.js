@@ -35,10 +35,8 @@ function createDownloadContainer(id) {
 
 function createWarning(msg) {
     var warning = document.createElement('div');
-    var warning_inline = document.createElement('div');
     warning.setAttribute('class', 'warn_text g1plus');
-    $(warning_inline).html(msg);
-    warning.appendChild(warning_inline);
+    $(warning).html(msg);
 
     return warning;
 }
