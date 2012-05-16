@@ -5,29 +5,26 @@
  * Fügt der Seite ein CSS hinzu, welches das Styling der G1Plus-Elemente
  * übernimmt.
  */
-function addCSS() {
-    var style = document.createElement('style');
+function addCSS(dataRoot) {
+    var style = document.createElement('link');
     var head = document.getElementsByTagName('head')[0];
     style.type = 'text/css';
-    style.appendChild(document.createTextNode(".g1plus a { background: #AC9C64; color: #2B2717; font-size: 10px; padding: 4px; display: inline-block; margin: 4px 4px 0 0; border-radius: 2px; border: 2px solid #BDB184; box-shadow: 1px 2px 6px rgba(0, 0, 0, 0.5); text-decoration:none; }"));
-    style.appendChild(document.createTextNode(".agecheck.g1plus { height:24px; padding: 200px 0px; text-align: center; }"));
-    style.appendChild(document.createTextNode(".g1plus a:hover {  background: #BDB184; border-color: #CFC6A5; }"));
-    style.appendChild(document.createTextNode(".downloads.g1plus { background: #262626; font-size: 12px; letter-spacing: normal; line-height: 18px; padding: 8px; margin-bottom: 8px; }"));
-    style.appendChild(document.createTextNode(".g1plus h4 { font-weight: bold; }"));
+    style.setAttribute('rel', 'stylesheet');
+    style.setAttribute('href', dataRoot + 'g1plus.css');
     head.appendChild(style);
 }
 
 /**
  * Erzeugt einen Container für Download-Links.
  *
- * @param id   Die id die des Containers
+ * @param id   Die id des Containers
  *
  * @return Der Container
  */
 function createDownloadContainer(id) {
     var downloads = document.createElement('div');
     downloads.setAttribute('id', id)
-    downloads.setAttribute('class', 'downloads g1plus ');
+    downloads.setAttribute('class', 'downloads g1plus');
 
     var heading = document.createElement('h4');
     heading.textContent = 'Downloads';
@@ -38,8 +35,10 @@ function createDownloadContainer(id) {
 
 function createWarning(msg) {
     var warning = document.createElement('div');
-    warning.setAttribute('class', 'warn_text');
-    $(warning).html(msg);
+    var warning_inline = document.createElement('div');
+    warning.setAttribute('class', 'warn_text g1plus');
+    $(warning_inline).html(msg);
+    warning.appendChild(warning_inline);
 
     return warning;
 }
@@ -337,27 +336,31 @@ self.port.on('response_cache', function(response) {
 /* Main
  * ==== */
 
-// CSS laden
-addCSS();
+self.port.on('main', function(response) {
+    var prefs = response.prefs;
 
-// UP UP DOWN DOWN LEFT RIGHT LEFT RIGHT B A ENTER
-var konami = new Konami()
-konami.code = function() {
-    $('#header h1').css('background', 'url(http://upload.wikimedia.org/wikipedia/de/thumb/a/a6/GameOneLogo.png/220px-GameOneLogo.png) no-repeat 30px 30px');
-    $('#header h1').css('width', '250px');
-}
-konami.load()
+    // CSS laden
+    addCSS(prefs.dataRoot);
 
-// Downloads für alle Videos holen
-$('div.player_swf embed').each(getDownloads);
-
-if($('img[src="/images/dummys/dummy_agerated.jpg"]').length == 0) {
-    if(document.getElementById('commentable_id')) {
-        var commentable_id = document.getElementById('commentable_id').getAttribute('value');
-        self.port.emit('add_to_cache', {id: commentable_id, url: window.location.href});
+    // UP UP DOWN DOWN LEFT RIGHT LEFT RIGHT B A ENTER
+    var konami = new Konami()
+    konami.code = function() {
+        $('#header h1').css('background', 'url(http://upload.wikimedia.org/wikipedia/de/thumb/a/a6/GameOneLogo.png/220px-GameOneLogo.png) no-repeat 30px 30px');
+        $('#header h1').css('width', '250px');
     }
-} else { // Altersbeschränkte Inhalte mit einer Altersfreigabe versehen
-    $('img[src="/images/dummys/dummy_agerated.jpg"]').each(function(i) {
-        $(this).replaceWith(createAgeCheck());
-    });
-}
+    konami.load()
+
+    // Downloads für alle Videos holen
+    $('div.player_swf embed').each(getDownloads);
+
+    if($('img[src="/images/dummys/dummy_agerated.jpg"]').length == 0) {
+        if(document.getElementById('commentable_id')) {
+            var commentable_id = document.getElementById('commentable_id').getAttribute('value');
+            self.port.emit('add_to_cache', {id: commentable_id, url: window.location.href});
+        }
+    } else { // Altersbeschränkte Inhalte mit einer Altersfreigabe versehen
+        $('img[src="/images/dummys/dummy_agerated.jpg"]').each(function(i) {
+            $(this).replaceWith(createAgeCheck());
+        });
+    }
+});

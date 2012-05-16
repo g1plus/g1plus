@@ -1,0 +1,44 @@
+body {
+    background: #F00;
+}
+.downloads.g1plus a {
+    background: #AC9C64;
+    color: #2B2717;
+    font-size: 10px;
+    padding: 4px;
+    display: inline-block;
+    margin: 4px 4px 0 0;
+    border-radius: 2px;
+    border: 2px solid #BDB184;
+    box-shadow: 1px 2px 6px rgba(0, 0, 0, 0.5);
+    text-decoration:none;
+}
+.agecheck.g1plus {
+    height:24px;
+    padding: 200px 0px;
+    text-align: center;
+}
+.downloads.g1plus a:hover {
+    background: #BDB184;
+    border-color: #CFC6A5;
+}
+.downloads.g1plus {
+    background: #262626;
+    font-size: 12px;
+    letter-spacing: normal;
+    line-height: 18px;
+    padding: 8px;
+    margin-bottom: 8px;
+}
+.downloads.g1plus, .warn_text.g1plus {
+    background-image: url('warn_icon.png'), url('bg_stripe.png');
+    background-repeat: no-repeat, repeat;
+    padding: 10px;
+    padding-left: 40px;
+}
+.warn_text.g1plus, .g1plus h4 {
+     text-shadow: 2px 2px 0px #000;
+}
+.g1plus h4 {
+    font-weight: bold;
+}
