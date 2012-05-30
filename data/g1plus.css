@@ -25,10 +25,18 @@ body {
 .downloads.g1plus {
     background: #262626;
     font-size: 12px;
-    letter-spacing: normal;
+    font-family: Verdana, sans-serif;
     line-height: 18px;
     padding: 8px;
     margin-bottom: 8px;
+    position: relative;
+}
+.downloads.g1plus .duration {
+    position: absolute;
+    padding: 8px;
+    font-style:italic;
+    top: 0px;
+    right: 0px;
 }
 .downloads.g1plus, .warn_text.g1plus {
     background-image: url('warn_icon.png'), url('bg_stripe.png');
@@ -36,9 +44,12 @@ body {
     padding: 10px;
     padding-left: 40px;
 }
-.warn_text.g1plus, .g1plus h4 {
+.warn_text.g1plus, .g1plus h4, .downloads.g1plus .duration {
      text-shadow: 2px 2px 0px #000;
 }
 .g1plus h4 {
     font-weight: bold;
+}
+.g1plus p {
+    margin-bottom: 0;
 }

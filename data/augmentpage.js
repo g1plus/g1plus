@@ -33,6 +33,19 @@ function createDownloadContainer(id) {
     return downloads;
 }
 
+function setDuration(duration, id) {
+    var video_length = document.createElement('p');
+    video_length.setAttribute('class', 'duration');
+    video_length.textContent = '(' + duration + 'min)';
+    $('#downloads_' + id).append(video_length);
+}
+
+function setPreviewImage(url, id) {
+    var parent = $('#downloads_' + id).parent();
+    parent.css({'background-image':'url(' + url + ')',
+                'background-repeat':'no-repeat'});
+}
+
 function createWarning(msg) {
     var warning = document.createElement('div');
     warning.setAttribute('class', 'warn_text g1plus');
@@ -85,10 +98,14 @@ function createPlayer(src) {
  * Download-Box an.
  */
 function getDownloads() {
-    var src = this.getAttribute('src');
+    try {
+        var src = $('embed', this).get(0).getAttribute('src');
+    } catch(err) {
+        var src = $('div', this).get(0).getAttribute('srcattribute');
+    }
     var id = src.split('-').pop();
-    this.parentNode.appendChild(createDownloadContainer('downloads_' + id));
-    self.port.emit('request', {url:'http://gameone.de/api/mrss/' + src, callback: 'response_mrss', id: id});
+    this.appendChild(createDownloadContainer('downloads_' + id));
+    request('http://gameone.de/api/mrss/' + src, 'response_mrss', id);
 }
 
 /**
@@ -162,7 +179,7 @@ function createAgeCheck() {
             var commentable_id = document.getElementById('commentable_id').getAttribute('value');
             $('div.agecheck').empty();
             $('div.agecheck').addClass('loading');
-            self.port.emit('request_cache', {id: commentable_id, url: window.location.href});
+            request_cache(commentable_id, window.location.href);
         }
         return false;
     });
@@ -171,44 +188,47 @@ function createAgeCheck() {
     return agecheck;
 }
 
-/* Events
- * ====== */
-
 /**
  * Behandeln der Rückgabe der mrss-API. Inhalte die von der flvgen-API geliefert
  * werden, werden gesondert behandelt. Doppelte Urls werden gefiltert.
  */
-self.port.on('response_mrss', function(response) {
+function response_mrss(response) {
     if(response.status == 200) {
         var urls = new Array();
         $('media\\:content', response.text).each(function() {
             var url = this.getAttribute('url');
+            var duration = Math.round(parseFloat(this.getAttribute('duration')) / 60);
             var callback = 'response_mediagen';
 
             if(url.indexOf('mediaGen.jhtml') != -1) {
                 url = 'http://de.esperanto.mtvi.com/www/xml/flv/flvgen.jhtml?vid=' + url.split(':').pop();
                 callback = 'response_flvgen';
-            } else
+            } else {
                 url = url.split('?')[0];
+            }
 
             if(urls.indexOf(url) == -1) {
+                setDuration(duration, response.id);
                 urls.push(url);
-                self.port.emit('request', {url: url, callback: callback, id: response.id});
+                request(url, callback, response.id);
             }
         });
+
+        var preview_image = $('img', response.text).get(0).getAttribute('url');
+        if (preview_image) {
+            setPreviewImage(preview_image, response.id);
+        }
     } else {
         var downloads = document.getElementById('downloads_' + response.id);
-        var error = document.createElement('p');
-        error.textContent = 'Es ist ein Fehler aufgetreten. Seite aktualisieren oder es später erneut versuchen.';
-        downloads.appendChild(error);
+        $(downloads).replaceWith(createWarning('Es ist ein Fehler aufgetreten. Seite aktualisieren oder es später erneut versuchen.'));
     }
-});
+}
 
 /**
  * Behandeln von Inhalten, die über die mediagen-API geliefert werden (reguläre
- * Viedos sowie Gametrailers-Videos).
+ * Videos sowie Gametrailers-Videos).
  */
-self.port.on('response_mediagen', function(response) {
+function response_mediagen(response) {
     var downloads = document.getElementById('downloads_' + response.id);
 
     if(response.status == 200) {
@@ -243,17 +263,15 @@ self.port.on('response_mediagen', function(response) {
             downloads.appendChild(downlink);
         });
     } else {
-        var error = document.createElement('p');
-        error.textContent = 'Es ist ein Fehler aufgetreten. Seite aktualisieren oder es später erneut versuchen.';
-        downloads.appendChild(error);
+        $(downloads).replaceWith(createWarning('Es ist ein Fehler aufgetreten. Seite aktualisieren oder es später erneut versuchen.'));
     }
-});
+}
 
 /**
  * Behandeln von Inhalten, die von der flvgen-API geliefert werden (TV-Folgen
  * 1 - 150).
  */
-self.port.on('response_flvgen', function(response) {
+function response_flvgen(response) {
     var downloads = document.getElementById('downloads_' + response.id);
     items = [];
 
@@ -283,18 +301,16 @@ self.port.on('response_flvgen', function(response) {
             downloads.appendChild(this);
         });
     } else {
-        var error = document.createElement('p');
-        error.textContent = 'Es ist ein Fehler aufgetreten. Seite aktualisieren oder es später erneut versuchen.';
-        downloads.appendChild(error);
+        $(downloads).replaceWith(createWarning('Es ist ein Fehler aufgetreten. Seite aktualisieren oder es später erneut versuchen.'));
     }
-});
+}
 
 /**
  * Behandeln des Cache-Response.
  * Im Cache enthaltene 18er-Inhalte werden durch das Video ersetzt und mit
  * Downloadlinks versehen.
  */
-self.port.on('response_cache', function(response) {
+function response_cache(response) {
     var page = '1';
     var href = window.location.href.split('?').pop().split('/');
     if(href[href.length - 2] == 'part') {
@@ -329,14 +345,51 @@ self.port.on('response_cache', function(response) {
             $(this).replaceWith(createWarning('Für diesen altersbeschränkten Inhalt liegt keine Referenz im Cache vor. Entweder ist der Cache derzeit nicht aktuell oder es handelt sich um eine Bilder-Galerie (wird derzeit nicht von G1Plus berücksichtigt).'));
         }
     });
+}
+
+/* Browser specific functions
+ * ========================== */
+// TODO: In jeweils eigene Datei (ff.js/chrome.js) auslagern
+
+function request(url, callback, id) {
+    self.port.emit('request', {url: url, callback: callback, id: id});
+}
+
+function add_to_cache(id, url) {
+    self.port.emit('add_to_cache', {id: id, url: url});
+}
+
+function request_cache(id, url) {
+    self.port.emit('request_cache', {id: id, url: url});
+}
+
+/* Events
+ * ====== */
+
+self.port.on('response_mrss', function(response) {
+    response_mrss(response);
+});
+
+self.port.on('response_mediagen', function(response) {
+    response_mediagen(response);
+});
+
+self.port.on('response_flvgen', function(response) {
+    response_flvgen(response);
+});
+
+self.port.on('response_cache', function(response) {
+    response_cache(response);
+});
+
+self.port.on('main', function(response) {
+    main(response.prefs);
 });
 
 /* Main
  * ==== */
 
-self.port.on('main', function(response) {
-    var prefs = response.prefs;
-
+function main(prefs) {
     // CSS laden
     addCSS(prefs.dataRoot);
 
@@ -349,16 +402,16 @@ self.port.on('main', function(response) {
     konami.load()
 
     // Downloads für alle Videos holen
-    $('div.player_swf embed').each(getDownloads);
+    $('div.player_swf').each(getDownloads);
 
     if($('img[src="/images/dummys/dummy_agerated.jpg"]').length == 0) {
         if(document.getElementById('commentable_id')) {
             var commentable_id = document.getElementById('commentable_id').getAttribute('value');
-            self.port.emit('add_to_cache', {id: commentable_id, url: window.location.href});
+            add_to_cache(commentable_id, window.location.href);
         }
     } else { // Altersbeschränkte Inhalte mit einer Altersfreigabe versehen
         $('img[src="/images/dummys/dummy_agerated.jpg"]').each(function(i) {
             $(this).replaceWith(createAgeCheck());
         });
     }
-});
+}
