@@ -42,8 +42,9 @@ function setDuration(duration, id) {
 
 function setPreviewImage(url, id) {
     var parent = $('#downloads_' + id).parent();
-    parent.css({'background-image':'url(' + url + ')',
+    parent.css({'background-image':'url("' + url + '")',
                 'background-repeat':'no-repeat'});
+    console.log(id)
 }
 
 function createWarning(msg) {
@@ -97,13 +98,15 @@ function createPlayer(src) {
  * Holt die zugehörigen Downloads des Owner-Objects und fügt sie in einer
  * Download-Box an.
  */
-function getDownloads() {
-    try {
-        var src = $('embed', this).get(0).getAttribute('src');
-    } catch(err) {
-        var src = $('div', this).get(0).getAttribute('srcattribute');
+function getDownloads(src) {
+    if(!src) {
+        try {
+            var src = $('embed', this).get(0).getAttribute('src');
+        } catch(err) {
+            var src = $('div', this).get(0).getAttribute('srcattribute');
+        }
     }
-    var id = src.split('-').pop();
+    id = src.split('-').pop();
     this.appendChild(createDownloadContainer('downloads_' + id));
     request('http://gameone.de/api/mrss/' + src, 'response_mrss', id);
 }
@@ -168,6 +171,7 @@ function createAgeCheck() {
     var ok = document.createElement('input');
     ok.setAttribute('type', 'submit');
     ok.setAttribute('value', 'Bestätigen');
+
     $(ok).click(function() {
         var year = parseInt($('select.year :selected', this.parentNode).text());
         var month = parseInt($('select.month :selected', this.parentNode).text());
@@ -335,8 +339,8 @@ function response_cache(response) {
                     player_swf.appendChild(player);
                     $(this).after(player_swf);
                     if(id.indexOf('http') == -1) {
-                        player.getDownloads = getDownloads;
-                        player.getDownloads();
+                        player_swf.getDownloads = getDownloads;
+                        player_swf.getDownloads(id);
                     }
                 }
             }
