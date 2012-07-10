@@ -4,9 +4,9 @@
     "description": "Fügt den Seiten von GameOne.de einen Download-Link unter Streaming-Inhalten hinzu und ermöglicht die Wiedergabe von Ab-18-Inhalten nach Altersverifikation auch innerhalb der Sperrzeiten.",
     "author": "trash",
     "homepage": "http://www.g1plus.x10.mx",
-    "icon": "icons/icon.png",
-    "icon64": "icons/icon64.png",
+    "icon": "icons/icon_128.png",
+    "icon64": "icons/icon_64.png",
     "license": "MPL 2.0",
     "id": "jid0-RJ7zrWHnVgA72fP1olvbPOWh1qk",
-    "version": "0.3.1"
+    "version": "0.3.3"
 }
