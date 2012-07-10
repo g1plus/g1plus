@@ -98,7 +98,7 @@ function createPlayer(src) {
  * Holt die zugehörigen Downloads des Owner-Objects und fügt sie in einer
  * Download-Box an.
  */
-function getDownloads() {
+function getDownloads(src) {
     if(!src) {
         try {
             var src = $('embed', this).get(0).getAttribute('src');
@@ -180,7 +180,7 @@ function createAgeCheck() {
         var padded_age = new Date(age.getFullYear() + 18, age.getMonth(), age.getDate());
         var today = new Date();
         if((today.getTime() - padded_age.getTime()) >= 0) {
-            var commentable_id = document.getElementById('comment_commentable_id').getAttribute('value');
+            var commentable_id = document.getElementById('commentable_id').getAttribute('value');
             $('div.agecheck').empty();
             $('div.agecheck').addClass('loading');
             request_cache(commentable_id, window.location.href);
@@ -338,10 +338,9 @@ function response_cache(response) {
                     var player = createPlayer(url);
                     player_swf.appendChild(player);
                     $(this).after(player_swf);
-                    console.log($(this).parent().html());
                     if(id.indexOf('http') == -1) {
                         player_swf.getDownloads = getDownloads;
-                        player_swf.getDownloads();
+                        player_swf.getDownloads(id);
                     }
                 }
             }
@@ -410,7 +409,7 @@ function main(prefs) {
     $('div.player_swf').each(getDownloads);
 
     if($('img[src="/images/dummys/dummy_agerated.jpg"]').length == 0) {
-        if(document.getElementById('comment_commentable_id')) {
+        if(document.getElementById('commentable_id')) {
             var commentable_id = document.getElementById('commentable_id').getAttribute('value');
             add_to_cache(commentable_id, window.location.href);
         }
