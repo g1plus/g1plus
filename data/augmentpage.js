@@ -70,6 +70,20 @@ function createDownloadLink(url, text) {
     return downlink;
 }
 
+function replaceWithLegacyPlayer() {
+    try {
+        console.log($('#embeddedPlayer', this).get(0).getAttribute('flashvars'));
+        var src = $('#embeddedPlayer', this).get(0).getAttribute('flashvars');
+    } catch(err) {
+        var src = $('#embeddedPlayer param[name="flashvars"]', this).val();
+    }
+    var id = src.split('&').shift().split(':').pop();
+    var url = 'http://media.mtvnservices.com/mgid:gameone:video:mtvnn.com:' + id;
+
+    var player = createLegacyPlayer(url);
+    $('#embeddedPlayer', this).replaceWith(player);
+}
+
 /**
  * Erstellt einen Player, der dem alten GameOne-Player entspricht.
  *
@@ -90,6 +104,7 @@ function createLegacyPlayer(src) {
     player.setAttribute('id', 'embeddedPlayer');
     player.setAttribute('src', src);
     player.setAttribute('type', 'application/x-shockwave-flash');
+
     return player;
 }
 
@@ -124,25 +139,24 @@ function createPlayer(src, parent) {
       id:"embeddedPlayer",
       name:"embeddedPlayer"
     };
-    swfobject.embedSWF("http://www.gameone.de/flash/g2player_2.0.60.swf", swf,"566", "424", "9.0.28.0", "expressInstall.swf", flashvars, params, attributes);
+    swfobject.embedSWF("http://www.gameone.de/flash/g2player_2.0.60.swf", swf, "566", "424", "9.0.28.0", "expressInstall.swf", flashvars, params, attributes);
 }
 
 /**
  * Holt die zugehörigen Downloads des Owner-Objects und fügt sie in einer
  * Download-Box an.
  */
-function getDownloads(src) {
-    if(!src) {
+function getDownloads() {
+    if(preferences.uselegacyplayer) {
+        var src = $('#embeddedPlayer', this).get(0).getAttribute('src');
+    } else {
         try {
-            var src = $('#embeddedPlayer').get(0).getAttribute('flashvars').split('&').shift();
+            var src = $('#embeddedPlayer', this).get(0).getAttribute('flashvars').split('&').shift();
         } catch(err) {
-            var src = $('#embeddedPlayer param[@name="flashvars"]').val().split('&').shift();
-            //console.log(src);
-            //var src = $('embed', this).get(0).getAttribute('src');
-            //var src = $('div', this).get(0).getAttribute('srcattribute');
+            var src = $('#embeddedPlayer param[name="flashvars"]', this).val().split('&').shift();
         }
     }
-    id = src.split('-').pop();
+    var id = src.split('-').pop();
     this.appendChild(createDownloadContainer('downloads_' + id));
     request('http://gameone.de/api/mrss/' + src, 'response_mrss', id);
 }
@@ -182,19 +196,21 @@ function createAgeCheck() {
     var agecheck = document.createElement('div');
     agecheck.setAttribute('class', 'agecheck g1plus');
 
+    var agecheck_box = document.createElement('div');
+
     var info = document.createElement('p');
     info.textContent = 'Um Ab-18-Inhalte sehen zu können musst du dein Alter bestätigen:';
-    agecheck.appendChild(info);
+    agecheck_box.appendChild(info);
 
     var day = document.createElement('select');
     day.setAttribute('class', 'day');
     addOptions(day, 1, 32);
-    agecheck.appendChild(day);
+    agecheck_box.appendChild(day);
 
     var month = document.createElement('select');
     month.setAttribute('class', 'month');
     addOptions(month, 1, 13);
-    agecheck.appendChild(month);
+    agecheck_box.appendChild(month);
 
     var year = document.createElement('select');
     year.setAttribute('class', 'year');
@@ -202,7 +218,7 @@ function createAgeCheck() {
         var today = new Date();
         return today.getFullYear() - i;
     });
-    agecheck.appendChild(year);
+    agecheck_box.appendChild(year);
 
     var ok = document.createElement('input');
     ok.setAttribute('type', 'submit');
@@ -223,7 +239,8 @@ function createAgeCheck() {
         }
         return false;
     });
-    agecheck.appendChild(ok);
+    agecheck_box.appendChild(ok);
+    agecheck.appendChild(agecheck_box);
 
     return agecheck;
 }
@@ -365,14 +382,22 @@ function response_cache(response) {
                 if(id.indexOf('gallery') > -1) {
                     $(this).replaceWith(createWarning('Bei diesem altersbeschränkten Inhalt handelt es sich um eine Bilder-Galerie, Diese werden derzeit nicht von G1Plus erfasst. Dies kann sich in zukünftigen Versionen ändern, wenn gesteigertes Interesse besteht (<a href="https://github.com/g1plus/g1plus/issues/1">Issue #1</a>)'));
                 } else {
-                    /*var url = 'http://media.mtvnservices.com/mgid:gameone:video:mtvnn.com:video_meta-' + id;*/
                     var url = "http://www.gameone.de/api/mrss/mgid:gameone:video:mtvnn.com:video_meta-" + id;
                     if(id.indexOf('http') > -1) {
                         url = id;
                     }
                     var player_swf = document.createElement('div');
                     player_swf.setAttribute('class', 'player_swf');
-                    var player = createPlayer(url, player_swf);
+                    if(preferences.uselegacyplayer) {
+                        url = 'http://media.mtvnservices.com/mgid:gameone:video:mtvnn.com:video_meta-' + id;
+                        if(id.indexOf('http') > -1) {
+                            url = id;
+                        }
+                        var player = createLegacyPlayer(url);
+                        player_swf.appendChild(player);
+                    } else {
+                        var player = createPlayer(url, player_swf);
+                    }
                     $(this).after(player_swf);
                     if(id.indexOf('http') == -1) {
                         player_swf.getDownloads = getDownloads;
@@ -429,7 +454,11 @@ self.port.on('main', function(response) {
 /* Main
  * ==== */
 
+var preferences;
+
 function main(prefs) {
+    preferences = prefs;
+
     // CSS laden
     addCSS(prefs.dataRoot);
 
@@ -441,15 +470,27 @@ function main(prefs) {
     }
     konami.load()
 
+    // Wenn in den Einstellungen aktiviert, den alten Player verwenden
+    if(preferences.uselegacyplayer) {
+        $('div.player_swf').each(replaceWithLegacyPlayer);
+    }
+
     // Downloads für alle Videos holen
     $('div.player_swf').each(getDownloads);
 
+    // Wenn keine Altersbeschränkungshinweise vorhanden, dann werden die
+    // Inhalte in den Cache gelegt. D.h. sollten wir eine Seite nach 22 Uhr
+    // besuchen, welche altersbeschränkte Inhalte hat, dann haben wir auch
+    // ohne synchronisierten Cache die Möglichkeit innerhalb den Sperrstunden
+    // diese Inhalte zu sehen.
     if($('img[src="/images/dummys/dummy_agerated.jpg"]').length == 0) {
         if(document.getElementById('commentable_id')) {
             var commentable_id = document.getElementById('commentable_id').getAttribute('value');
             add_to_cache(commentable_id, window.location.href);
         }
-    } else { // Altersbeschränkte Inhalte mit einer Altersfreigabe versehen
+    } else if(prefs.agerated) {
+        // Altersbeschränkte Inhalte mit einer Altersfreigabe versehen wenn
+        // in den Einstellungen erlaubt.
         $('img[src="/images/dummys/dummy_agerated.jpg"]').each(function(i) {
             $(this).replaceWith(createAgeCheck());
         });
