@@ -8,12 +8,17 @@
     "icon64": "icons/icon_64.png",
     "license": "MPL 2.0",
     "id": "jid0-RJ7zrWHnVgA72fP1olvbPOWh1qk",
-    "version": "0.3.3",
+    "version": "0.4",
     "preferences": [{
         "name": "agerated",
         "title": "Altersbeschränkte Inhalte anzeigen",
         "type": "bool",
         "value": true
+    }, {
+        "name": "runningads",
+        "title": "Player bei Download automatisch lautlos starten",
+        "type": "bool",
+        "value": false
     }, {
         "name": "uselegacyplayer",
         "title": "Alten Player verwenden (experimentell)",
