@@ -1,3 +1,20 @@
+/* Konstanten
+ * ========== */
+
+var LEGACY_API_PREFIX = 'http://media.mtvnservices.com/mgid:gameone:video:mtvnn.com:';
+var API_PREFIX = 'http://www.gameone.de/api/mrss/mgid:gameone:video:mtvnn.com:';
+var PLAYER_SWF = 'http://www.gameone.de/flash/g2player_2.0.64.1.swf';
+var GAMETRAILERS_URL = 'http://trailers.gametrailers.com/gt_vault';
+
+
+/* Globals
+ * ======= */
+
+var _preferences;
+var _fallback;
+var _url;
+
+
 /* Funktionen
  * ========== */
 
@@ -6,8 +23,9 @@
  * übernimmt.
  */
 function addCSS(dataRoot) {
-    var style = document.createElement('link');
-    var head = document.getElementsByTagName('head')[0];
+    var head, style;
+    head = document.getElementsByTagName('head')[0];
+    style = document.createElement('link');
     style.type = 'text/css';
     style.setAttribute('rel', 'stylesheet');
     style.setAttribute('href', dataRoot + 'g1plus.css');
@@ -21,14 +39,22 @@ function addCSS(dataRoot) {
  *
  * @return Der Container
  */
-function createDownloadContainer(id) {
-    var downloads = document.createElement('div');
-    downloads.setAttribute('id', id)
+function createDownloadContainer(id, src) {
+    var downloads, heading, hidden_src;
+
+    downloads = document.createElement('div');
+    downloads.setAttribute('id', id);
     downloads.setAttribute('class', 'downloads g1plus');
 
-    var heading = document.createElement('h4');
+    heading = document.createElement('h4');
     heading.textContent = 'Downloads';
     downloads.appendChild(heading);
+
+    hidden_src = document.createElement('input');
+    hidden_src.setAttribute('type', 'hidden');
+    hidden_src.setAttribute('class', 'src g1plus');
+    hidden_src.setAttribute('value', src);
+    downloads.appendChild(hidden_src);
 
     return downloads;
 }
@@ -42,8 +68,8 @@ function setDuration(duration, id) {
 
 function setPreviewImage(url, id) {
     var parent = $('#downloads_' + id).parent();
-    parent.css({'background-image':'url("' + url + '")',
-                'background-repeat':'no-repeat'});
+    parent.css({'background-image': 'url(' + url + ')',
+                'background-repeat': 'no-repeat'});
 }
 
 function createWarning(msg) {
@@ -52,6 +78,82 @@ function createWarning(msg) {
     $(warning).html(msg);
 
     return warning;
+}
+
+/**
+ * Erstellt einen Player, der dem GameOne-Player entspricht.
+ *
+ * @param src    Quelle des anzuzeigenden Videos.
+ * @param legacy Legt fest ob der alte Player verwendet werden soll.
+ */
+function createPlayer(src, ismuted, autoplay, legacy) {
+    var parent, swf, rand, attributes, params;
+
+    parent = document.createElement('div');
+    parent.setAttribute('class', 'player_swf');
+    swf = document.createElement('p');
+    parent.appendChild(swf);
+    rand = Math.floor((Math.random()*1000000)+1);
+    attributes = {
+      id:"embeddedPlayer",
+      name:"embeddedPlayer"
+    };
+    params = {
+        wmode: "true",
+        enableJavascript: "true",
+        allowscriptaccess: "always",
+        swLiveConnect: "true",
+        allowfullscreen: "true"
+    };
+
+    if(legacy) {
+        swfobject.embedSWF(src.replace(API_PREFIX, LEGACY_API_PREFIX).replace('file=', '').replace('mrss=', ''),
+                           swf, "566", "424", "9.0.28.0",
+                           null, null, params, attributes);
+    } else {
+        var flashvars = {
+            config: "http://www.gameone.de/gameone_de_DE.xml",
+            adSite: "gameone.de",
+            umaSite: "gameone.de",
+            url: _url,
+            tile: "",
+            ord: rand,
+            image: "",
+            ismuted: ismuted,
+            autoPlay: autoplay,
+            usehq: "true"
+        };
+        if(src.startsWith('file=')) {
+            flashvars.file = src.replace('file=', '');
+        } else if(src.startsWith('mrss=')) {
+            flashvars.mrss = src.replace('mrss=', '');
+        } else {
+            flashvars.mrss = src;
+        }
+        swfobject.embedSWF(_preferences.latest_player,
+                           swf, "566", "424", "9.0.28.0",
+                           null, flashvars, params, attributes);
+    }
+
+    return parent;
+}
+
+function replaceWithLegacyPlayer() {
+    var id, url, player, src;
+
+    try {
+        src = $('#embeddedPlayer', this).get(0).getAttribute('flashvars').match(/(file=|mrss=)[^&]*/)[0];
+    } catch (err) {
+        src = $('#embeddedPlayer param[name="flashvars"]', this).val().match(/(file=|mrss=)[^&]*/)[0];
+    }
+
+    if(src) {
+        id = src.split('&').shift().split(':').pop();
+        url = API_PREFIX + id;
+
+        player = createPlayer(url, false, false, true);
+        $('#embeddedPlayer', this).replaceWith(player.childNodes[0]);
+    }
 }
 
 /**
@@ -70,76 +172,20 @@ function createDownloadLink(url, text) {
     return downlink;
 }
 
-function replaceWithLegacyPlayer() {
-    try {
-        console.log($('#embeddedPlayer', this).get(0).getAttribute('flashvars'));
-        var src = $('#embeddedPlayer', this).get(0).getAttribute('flashvars');
-    } catch(err) {
-        var src = $('#embeddedPlayer param[name="flashvars"]', this).val();
-    }
-    var id = src.split('&').shift().split(':').pop();
-    var url = 'http://media.mtvnservices.com/mgid:gameone:video:mtvnn.com:' + id;
-
-    var player = createLegacyPlayer(url);
-    $('#embeddedPlayer', this).replaceWith(player);
-}
-
 /**
- * Erstellt einen Player, der dem alten GameOne-Player entspricht.
+ * Erstellt einen eingebetteten YouTube-Player.
  *
- * @param src  Quelle des anzuzeigenden Videos.
+ * @param id   ID des Youtube-Videos
  */
-function createLegacyPlayer(src) {
-    var player = document.createElement('embed');
-    player.setAttribute('width', 566);
-    player.setAttribute('height', 424);
-    player.setAttribute('flashvars', 'configParams');
-    player.setAttribute('menu', 'false');
-    player.setAttribute('swliveconnect', 'true');
-    player.setAttribute('allowscriptaccess', 'always');
-    player.setAttribute('enablejavascript', 'true');
-    player.setAttribute('allowfullscreen', 'true');
-    player.setAttribute('quality', 'high');
-    player.setAttribute('name', 'embeddedPlayer');
-    player.setAttribute('id', 'embeddedPlayer');
-    player.setAttribute('src', src);
-    player.setAttribute('type', 'application/x-shockwave-flash');
+function createYoutubePlayer(id) {
+    var parent, swf;
 
-    return player;
-}
-
-/**
- * Erstellt einen Player, der dem GameOne-Player entspricht.
- *
- * @param src  Quelle des anzuzeigenden Videos.
- */
-function createPlayer(src, parent) {
-    var swf = document.createElement('div');
+    parent = document.createElement('div');
+    swf = document.createElement('p');
     parent.appendChild(swf);
-    var rand = Math.floor((Math.random()*1000000)+1);
-    var flashvars = {
-        mrss: src,
-        config: "http://www.gameone.de/gameone_de_DE.xml",
-        adSite: "gameone.de",
-        umaSite: "gameone.de",
-        autoPlay: "false",
-        url: "",
-        tile: "",
-        ord: rand,
-        image: ""
-    };
-    var params = {
-        wmode: "true",
-        enableJavascript: "true",
-        allowscriptaccess: "always",
-        swLiveConnect: "true",
-        allowfullscreen: "true"
-    };
-    var attributes = {
-      id:"embeddedPlayer",
-      name:"embeddedPlayer"
-    };
-    swfobject.embedSWF("http://www.gameone.de/flash/g2player_2.0.60.swf", swf, "566", "424", "9.0.28.0", "expressInstall.swf", flashvars, params, attributes);
+    swfobject.embedSWF("https://youtube.com/v/" + id + "?enablejsapi=1&version=3&border=0", swf, "566", "290", "8", null, null);
+
+    return parent;
 }
 
 /**
@@ -147,18 +193,29 @@ function createPlayer(src, parent) {
  * Download-Box an.
  */
 function getDownloads() {
-    if(preferences.uselegacyplayer) {
-        var src = $('#embeddedPlayer', this).get(0).getAttribute('src');
+    var src, id, download_container;
+
+    if(_preferences.uselegacyplayer) {
+        src = $('#embeddedPlayer', this).get(0).getAttribute('data');
     } else {
         try {
-            var src = $('#embeddedPlayer', this).get(0).getAttribute('flashvars').split('&').shift();
-        } catch(err) {
-            var src = $('#embeddedPlayer param[name="flashvars"]', this).val().split('&').shift();
+            src = $('#embeddedPlayer', this).get(0).getAttribute('flashvars').match(/(file=|mrss=)[^&]*/)[0];
+        } catch (err) {
+            src = $('#embeddedPlayer param[name="flashvars"]', this).val().match(/(file=|mrss=)[^&]*/)[0];
         }
     }
-    var id = src.split('-').pop();
-    this.appendChild(createDownloadContainer('downloads_' + id));
-    request('http://gameone.de/api/mrss/' + src, 'response_mrss', id);
+
+    if(src) {
+        id = src.split(':').pop();
+        download_container = createDownloadContainer('downloads_' + id, src);
+        this.appendChild(download_container);
+        if(src.startsWith('file=')) {
+            var filename = src.split('/').pop();
+            download_container.appendChild(createDownloadLink(src.replace('file=', ''), filename));
+        } else {
+            request(API_PREFIX + id, 'response_mrss', id);
+        }
+    }
 }
 
 /**
@@ -193,26 +250,28 @@ function addOptions(select, min, max, callback) {
  * @return Das Altersabfrage-Element
  */
 function createAgeCheck() {
-    var agecheck = document.createElement('div');
+    var agecheck, agecheck_box, info, day, month, year, ok;
+
+    agecheck = document.createElement('div');
     agecheck.setAttribute('class', 'agecheck g1plus');
 
-    var agecheck_box = document.createElement('div');
+    agecheck_box = document.createElement('div');
 
-    var info = document.createElement('p');
+    info = document.createElement('p');
     info.textContent = 'Um Ab-18-Inhalte sehen zu können musst du dein Alter bestätigen:';
     agecheck_box.appendChild(info);
 
-    var day = document.createElement('select');
+    day = document.createElement('select');
     day.setAttribute('class', 'day');
     addOptions(day, 1, 32);
     agecheck_box.appendChild(day);
 
-    var month = document.createElement('select');
+    month = document.createElement('select');
     month.setAttribute('class', 'month');
     addOptions(month, 1, 13);
     agecheck_box.appendChild(month);
 
-    var year = document.createElement('select');
+    year = document.createElement('select');
     year.setAttribute('class', 'year');
     addOptions(year, 0, 100, function(i) {
         var today = new Date();
@@ -220,25 +279,27 @@ function createAgeCheck() {
     });
     agecheck_box.appendChild(year);
 
-    var ok = document.createElement('input');
+    ok = document.createElement('input');
     ok.setAttribute('type', 'submit');
     ok.setAttribute('value', 'Bestätigen');
 
-    $(ok).click(function() {
-        var year = parseInt($('select.year :selected', this.parentNode).text());
-        var month = parseInt($('select.month :selected', this.parentNode).text());
-        var day = parseInt($('select.day :selected', this.parentNode).text());
-        var age = new Date(year, month - 1, day);
-        var padded_age = new Date(age.getFullYear() + 18, age.getMonth(), age.getDate());
-        var today = new Date();
+    $(ok).click(function () {
+        var year, month, day, age, padded_age, today;
+
+        year = parseInt($('select.year :selected', this.parentNode).text());
+        month = parseInt($('select.month :selected', this.parentNode).text());
+        day = parseInt($('select.day :selected', this.parentNode).text());
+        age = new Date(year, month - 1, day);
+        padded_age = new Date(age.getFullYear() + 18, age.getMonth(), age.getDate());
+        today = new Date();
         if((today.getTime() - padded_age.getTime()) >= 0) {
             var commentable_id = document.getElementById('commentable_id').getAttribute('value');
-            $('div.agecheck').empty();
-            $('div.agecheck').addClass('loading');
-            request_cache(commentable_id, window.location.href);
+            request_cache(commentable_id);
         }
+
         return false;
     });
+
     agecheck_box.appendChild(ok);
     agecheck.appendChild(agecheck_box);
 
@@ -246,26 +307,22 @@ function createAgeCheck() {
 }
 
 /**
- * Behandeln der Rückgabe der mrss-API. Inhalte die von der flvgen-API geliefert
- * werden, werden gesondert behandelt. Doppelte Urls werden gefiltert.
+ * Behandeln der Rückgabe der mrss-API. Doppelte Urls werden gefiltert.
  */
 function response_mrss(response) {
     if(response.status == 200) {
         var urls = new Array();
-        $('media\\:content', response.text).each(function() {
-            var url = this.getAttribute('url');
-            var duration = Math.round(parseFloat(this.getAttribute('duration')) / 60);
-            var callback = 'response_mediagen';
+        $('media\\:content', response.text).each(function () {
+            var url, duration, callback;
 
-            if(url.indexOf('mediaGen.jhtml') != -1) {
-                url = 'http://de.esperanto.mtvi.com/www/xml/flv/flvgen.jhtml?vid=' + url.split(':').pop();
-                callback = 'response_flvgen';
-            } else {
-                url = url.split('?')[0];
-            }
+            url = this.getAttribute('url').split('?')[0];
+            duration = Math.round(parseFloat(this.getAttribute('duration')) / 60);
+            callback = 'response_mediagen';
 
             if(urls.indexOf(url) == -1) {
-                setDuration(duration, response.id);
+                if(duration > 0) {
+                    setDuration(duration, response.id);
+                }
                 urls.push(url);
                 request(url, callback, response.id);
             }
@@ -277,13 +334,12 @@ function response_mrss(response) {
         }
     } else {
         var downloads = document.getElementById('downloads_' + response.id);
-        $(downloads).replaceWith(createWarning('Es ist ein Fehler aufgetreten. Seite aktualisieren oder es später erneut versuchen.'));
+        $(downloads).replaceWith(createWarning('Es ist ein Fehler aufgetreten. Seite aktualisieren oder es später erneut versuchen. (<a href="http://g1plus.x10.mx/report/index.php?url=' + _url + '">Problem melden?</a>)'));
     }
 }
 
 /**
- * Behandeln von Inhalten, die über die mediagen-API geliefert werden (reguläre
- * Videos sowie Gametrailers-Videos).
+ * Behandeln von Inhalten, die über die mediagen-API geliefert werden
  */
 function response_mediagen(response) {
     var downloads = document.getElementById('downloads_' + response.id);
@@ -291,7 +347,7 @@ function response_mediagen(response) {
     if(response.status == 200) {
         var videos = [];
 
-        $('rendition', response.text).each(function() {
+        $('rendition', response.text).each(function () {
             var v = {};
             v.width = this.getAttribute('width');
             v.height = this.getAttribute('height');
@@ -316,49 +372,11 @@ function response_mediagen(response) {
 
         $(videos).each(function () {
             var downlink = createDownloadLink(this.url,
-                this.mime + ' ' + this.width + 'x' + this.height + '@' + this.bitrate + 'kbps');
+                this.width + 'x' + this.height + '@' + this.bitrate + 'kbps');
             downloads.appendChild(downlink);
         });
     } else {
-        $(downloads).replaceWith(createWarning('Es ist ein Fehler aufgetreten. Seite aktualisieren oder es später erneut versuchen.'));
-    }
-}
-
-/**
- * Behandeln von Inhalten, die von der flvgen-API geliefert werden (TV-Folgen
- * 1 - 150).
- */
-function response_flvgen(response) {
-    var downloads = document.getElementById('downloads_' + response.id);
-    items = [];
-
-    if(response.status == 200) {
-        $('src', response.text).each(function() {
-            items.push($(this).text());
-        });
-
-        $(items).each(function() {
-            var text = this.split('/').pop();
-            text = text.split('.').shift();
-            var downlink = createDownloadLink(this, text);
-            downloads.appendChild(downlink);
-        });
-
-        var x = $('a', downloads);
-
-        x.sort(function(a, b) {
-            return b.textContent < a.textContent;
-        });
-
-        $('a', downloads).each(function() {
-            downloads.removeChild(this);
-        });
-
-        $(x).each(function() {
-            downloads.appendChild(this);
-        });
-    } else {
-        $(downloads).replaceWith(createWarning('Es ist ein Fehler aufgetreten. Seite aktualisieren oder es später erneut versuchen.'));
+        $(downloads).replaceWith(createWarning('Es ist ein Fehler aufgetreten. Seite aktualisieren oder es später erneut versuchen. (<a href="http://g1plus.x10.mx/report/index.php?url=' + _url + '">Problem melden?</a>)'));
     }
 }
 
@@ -368,48 +386,63 @@ function response_flvgen(response) {
  * Downloadlinks versehen.
  */
 function response_cache(response) {
-    var page = '1';
-    var href = window.location.href.split('?').pop().split('/');
-    if(href[href.length - 2] == 'part') {
-        page = href[href.length - 1];
-    }
+    if(response.status == 200) {
+        var page = 1;
+        var href = _url.split('?').pop().split('/');
+        if(href[href.length - 2] == 'part') {
+            page = parseInt(href[href.length - 1]);
+        }
 
-    $('div.agecheck').each(function(i){
-        if(response.cache && response.cache[page][String(i + 1)]) {
-            var ids = response.cache[page][String(i + 1)];
-            for(j in ids) {
-                var id = ids[j];
-                if(id.indexOf('gallery') > -1) {
+        /* We can't parse the cache as XML since we can't ensure it's wellformed or
+         * valid. To extract the agerated tags we need to make them visible for
+         * jQuery by replacing them with proper html tags beforhand */
+        var part = response.cache.replace('<part />', '<part/>').split('<part/>')[page - 1];
+        var properHtml = '<div>' + part.replace(/<agerated>/g, '<div class="agerated">').replace(/<\/agerated>/g, '</div>') + '</div>';
+        var agerated = $('div', properHtml);
+
+        $('div.g1plus.agecheck').each(function(i){
+            $(this).empty();
+            $(this).addClass('loading');
+
+            var items = $('video', agerated[i]);
+            for(var j = 0; j < items.length; ++j) {
+                var src = items[j].getAttribute('src').split(':');
+                var protocol = src[0];
+                var id = src[1];
+                if(id in _fallback) {
+                    id = _fallback[id].replace('$GT', GAMETRAILERS_URL);
+                }
+
+                if(protocol == 'riptide' || protocol == 'video') {
+                    var url = API_PREFIX + 'video_meta-' + id;
+                    if(id.indexOf('http') > -1) {
+                        url = 'file=' + id;
+                    }
+                    var player_swf = createPlayer(url, false, false, _preferences.uselegacyplayer);
+                    $(this).after(player_swf);
+                    player_swf.getDownloads = getDownloads;
+                    player_swf.getDownloads(id);
+                } else if(protocol == 'youtube') {
+                    var youtube_swf = createYoutubePlayer(id.split('=')[1]);
+                    $(this).after(youtube_swf);
+                } else if(protocol == 'gallery') {
                     $(this).replaceWith(createWarning('Bei diesem altersbeschränkten Inhalt handelt es sich um eine Bilder-Galerie, Diese werden derzeit nicht von G1Plus erfasst. Dies kann sich in zukünftigen Versionen ändern, wenn gesteigertes Interesse besteht (<a href="https://github.com/g1plus/g1plus/issues/1">Issue #1</a>)'));
                 } else {
-                    var url = "http://www.gameone.de/api/mrss/mgid:gameone:video:mtvnn.com:video_meta-" + id;
-                    if(id.indexOf('http') > -1) {
-                        url = id;
-                    }
-                    var player_swf = document.createElement('div');
-                    player_swf.setAttribute('class', 'player_swf');
-                    if(preferences.uselegacyplayer) {
-                        url = 'http://media.mtvnservices.com/mgid:gameone:video:mtvnn.com:video_meta-' + id;
-                        if(id.indexOf('http') > -1) {
-                            url = id;
-                        }
-                        var player = createLegacyPlayer(url);
-                        player_swf.appendChild(player);
-                    } else {
-                        var player = createPlayer(url, player_swf);
-                    }
-                    $(this).after(player_swf);
-                    if(id.indexOf('http') == -1) {
-                        player_swf.getDownloads = getDownloads;
-                        player_swf.getDownloads(id);
-                    }
+                    $(this).replaceWith(createWarning('G1Plus konnte für diesen Inhalt keine Referenz finden. (<a href="http://g1plus.x10.mx/report/index.php?url=' + _url + '">Problem melden?</a>)'));
                 }
             }
             $(this).remove();
-        } else {
-            $(this).replaceWith(createWarning('Für diesen altersbeschränkten Inhalt liegt keine Referenz im Cache vor. Entweder ist der Cache derzeit nicht aktuell oder es handelt sich um eine Bilder-Galerie (wird derzeit nicht von G1Plus berücksichtigt).'));
-        }
-    });
+        });
+    } else {
+        $(this).after(createWarning('Problem beim Abfragen des Caches.'));
+    }
+}
+
+/**
+ * Auf Preference-Änderungen reagieren.
+ */
+function update_prefs(prefs) {
+    _preferences = prefs;
 }
 
 /* Browser specific functions
@@ -418,10 +451,6 @@ function response_cache(response) {
 
 function request(url, callback, id) {
     self.port.emit('request', {url: url, callback: callback, id: id});
-}
-
-function add_to_cache(id, url) {
-    self.port.emit('add_to_cache', {id: id, url: url});
 }
 
 function request_cache(id, url) {
@@ -439,60 +468,68 @@ self.port.on('response_mediagen', function(response) {
     response_mediagen(response);
 });
 
-self.port.on('response_flvgen', function(response) {
-    response_flvgen(response);
-});
-
 self.port.on('response_cache', function(response) {
     response_cache(response);
 });
 
 self.port.on('main', function(response) {
-    main(response.prefs);
+    main(response.prefs, response.fallback);
 });
+
+self.port.on('update_prefs', function(response) {
+    update_prefs(response);
+});
+
 
 /* Main
  * ==== */
 
-var preferences;
-
-function main(prefs) {
-    preferences = prefs;
+function main(prefs, fallback) {
+    _preferences = prefs;
+    _fallback = fallback;
+    _url = window.location.href;
 
     // CSS laden
     addCSS(prefs.dataRoot);
 
     // UP UP DOWN DOWN LEFT RIGHT LEFT RIGHT B A ENTER
     var konami = new Konami()
-    konami.code = function() {
-        $('#header h1').css('background', 'url(http://upload.wikimedia.org/wikipedia/de/thumb/a/a6/GameOneLogo.png/220px-GameOneLogo.png) no-repeat 30px 30px');
+    konami.code = function () {
+        $('#header h1').css('background',
+                            'url(http://upload.wikimedia.org/wikipedia/de/thumb/a/a6/GameOneLogo.png/220px-GameOneLogo.png) no-repeat 30px 30px');
         $('#header h1').css('width', '250px');
     }
     konami.load()
 
     // Wenn in den Einstellungen aktiviert, den alten Player verwenden
-    if(preferences.uselegacyplayer) {
+    if(_preferences.uselegacyplayer) {
         $('div.player_swf').each(replaceWithLegacyPlayer);
     }
 
     // Downloads für alle Videos holen
     $('div.player_swf').each(getDownloads);
 
-    // Wenn keine Altersbeschränkungshinweise vorhanden, dann werden die
-    // Inhalte in den Cache gelegt. D.h. sollten wir eine Seite nach 22 Uhr
-    // besuchen, welche altersbeschränkte Inhalte hat, dann haben wir auch
-    // ohne synchronisierten Cache die Möglichkeit innerhalb den Sperrstunden
-    // diese Inhalte zu sehen.
-    if($('img[src="/images/dummys/dummy_agerated.jpg"]').length == 0) {
-        if(document.getElementById('commentable_id')) {
-            var commentable_id = document.getElementById('commentable_id').getAttribute('value');
-            add_to_cache(commentable_id, window.location.href);
-        }
-    } else if(prefs.agerated) {
+    if(prefs.agerated) {
         // Altersbeschränkte Inhalte mit einer Altersfreigabe versehen wenn
         // in den Einstellungen erlaubt.
         $('img[src="/images/dummys/dummy_agerated.jpg"]').each(function(i) {
             $(this).replaceWith(createAgeCheck());
+        });
+    }
+
+    if(_preferences.runningads) {
+        $('div.player_swf .downloads').on('click', 'a', function(event){
+            var parent, src, player;
+
+            parent = this.parentNode;
+            src = $('.g1plus.src', parent).attr('value');
+
+            setTimeout(function () {
+                player = createPlayer(src, true, true, false);
+                $(parent).prev().replaceWith(player);
+            }, 100);
+
+            $(parent).unbind('click');
         });
     }
 }
